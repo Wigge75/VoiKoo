@@ -1,6 +1,6 @@
 // WhisperService.swift
 // Wraps WhisperKit for local speech-to-text transcription.
-// The model is downloaded once (to ~/Library/Caches/) and reused across sessions.
+// The model is downloaded once (to ~/Library/Application Support/) and reused across sessions.
 // Supports German and other languages via the multilingual Whisper models.
 
 import Foundation
@@ -52,11 +52,15 @@ final class WhisperService: ObservableObject {
 
         do {
             // downloadBase leitet den HuggingFace-Download in den Sandbox-eigenen
-            // Caches-Ordner um. Ohne diese Angabe würde WhisperKit nach
+            // Application-Support-Ordner um. Ohne diese Angabe würde WhisperKit nach
             // ~/Documents/huggingface/ schreiben, das in der Sandbox nicht erreichbar ist.
-            let downloadBase = FileManager.default
-                .urls(for: .cachesDirectory, in: .userDomainMask)[0]
-            let config = WhisperKitConfig(model: modelName, downloadBase: downloadBase)
+            // Bewusst NICHT .cachesDirectory: der Cache-Ordner darf vom System jederzeit
+            // geleert werden, was das kompilierte Modell entfernt hätte und eine erneute
+            // CoreML-Spezialisierung (den täglichen Kompilier-Bug) ausgelöst hat.
+            let appSupport = FileManager.default
+                .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            try FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
+            let config = WhisperKitConfig(model: modelName, downloadBase: appSupport)
 
             let wk = try await WhisperKit(config)
 
